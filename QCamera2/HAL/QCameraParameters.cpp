@@ -7540,8 +7540,7 @@ int32_t QCameraParameters::configFrameCapture(bool commitSettings)
     }
 
     if (isHDREnabled() || m_bAeBracketingEnabled || m_bAFBracketingOn ||
-          m_bOptiZoomOn || m_bReFocusOn || m_LowLightLevel
-          || getManualCaptureMode()) {
+          m_bOptiZoomOn || m_bReFocusOn || getManualCaptureMode()) {
         value = CAM_FLASH_MODE_OFF;
     } else if (isChromaFlashEnabled()) {
         value = CAM_FLASH_MODE_ON;
@@ -7549,13 +7548,7 @@ int32_t QCameraParameters::configFrameCapture(bool commitSettings)
         value = mFlashValue;
     }
 
-    if (value != CAM_FLASH_MODE_OFF) {
-        configureFlash(m_captureFrameConfig);
-    } else if(isHDREnabled()) {
-        configureHDRBracketing (m_captureFrameConfig);
-    } else if(isAEBracketEnabled()) {
-        configureAEBracketing (m_captureFrameConfig);
-    } else if (m_LowLightLevel) {
+    if (m_LowLightLevel && (value != CAM_FLASH_MODE_ON)) {
         configureLowLight (m_captureFrameConfig);
 
         //Added reset capture type as a last batch for back-end to restore settings.
@@ -7563,6 +7556,12 @@ int32_t QCameraParameters::configFrameCapture(bool commitSettings)
         m_captureFrameConfig.configs[batch_count].type = CAM_CAPTURE_RESET;
         m_captureFrameConfig.configs[batch_count].num_frames = 0;
         m_captureFrameConfig.num_batch++;
+    } else if (value != CAM_FLASH_MODE_OFF) {
+        configureFlash(m_captureFrameConfig);
+    } else if(isHDREnabled()) {
+        configureHDRBracketing (m_captureFrameConfig);
+    } else if(isAEBracketEnabled()) {
+        configureAEBracketing (m_captureFrameConfig);
     } else if (getManualCaptureMode() >= CAM_MANUAL_CAPTURE_TYPE_2){
         rc = configureManualCapture (m_captureFrameConfig);
         //Added reset capture type as a last batch for back-end to restore settings.
@@ -7597,12 +7596,13 @@ int32_t QCameraParameters::configFrameCapture(bool commitSettings)
  *
  * PARAMETERS :
  *   @commitSettings : flag to enable or disable commit this this settings
+ *   @lowLightEnabled: flag to indicate if low light scene detected
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::resetFrameCapture(bool commitSettings)
+int32_t QCameraParameters::resetFrameCapture(bool commitSettings, bool lowLightEnabled)
 {
     int32_t rc = NO_ERROR;
     memset(&m_captureFrameConfig, 0, sizeof(cam_capture_frame_config_t));
@@ -7621,7 +7621,7 @@ int32_t QCameraParameters::resetFrameCapture(bool commitSettings)
         }
         rc = stopAEBracket();
     } else if ((isChromaFlashEnabled()) || (mFlashValue != CAM_FLASH_MODE_OFF)
-            || (getLowLightLevel() != CAM_LOW_LIGHT_OFF)) {
+            || (lowLightEnabled == true)) {
         rc = setToneMapMode(true, false);
         if (rc != NO_ERROR) {
             LOGH("Failed to enable tone map during chroma flash");
@@ -9463,7 +9463,7 @@ int32_t QCameraParameters::updateFlash(bool commitSettings)
     }
 
     if (isHDREnabled() || m_bAeBracketingEnabled || m_bAFBracketingOn ||
-          m_bOptiZoomOn || m_bReFocusOn || m_LowLightLevel) {
+          m_bOptiZoomOn || m_bReFocusOn ) {
         value = CAM_FLASH_MODE_OFF;
     } else if (m_bChromaFlashOn) {
         value = CAM_FLASH_MODE_ON;
